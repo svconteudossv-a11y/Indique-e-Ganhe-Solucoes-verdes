@@ -1,0 +1,6 @@
+{
+  "name": "indique-e-ganhe-solucoes-verdes",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {"test": "node --test", "check": "node --check cloud/main.js && node --check public/app.js", "preview": "python3 -m http.server 8080 --directory public"}
+}
