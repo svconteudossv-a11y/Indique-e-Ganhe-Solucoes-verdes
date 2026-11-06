@@ -41,7 +41,7 @@ async function migrateLegacyCode(user) {
 
 async function campaign(id, active=true) {
   const c = await new Parse.Query('Campaign').get(id,master);
-  if (active && !c.get('active')) throw new Error('Campanha indisponível.');
+  if (c.get('deleted') === true || (active && (c.get('archived') === true || !c.get('active')))) throw new Error('Campanha indisponível.');
   return c;
 }
 Parse.Cloud.beforeSave(Parse.User, async request => {
@@ -64,7 +64,7 @@ Parse.Cloud.define('myDashboard',async ({user}) => {
   let isAdmin=false;
   try {await admin(user);isAdmin=true;} catch {}
   const refs=await new Parse.Query('Referral').equalTo('indicator',user).notEqualTo('archived',true).descending('createdAt').limit(100).find(master);
-  const campaigns=await new Parse.Query('Campaign').equalTo('active',true).descending('createdAt').limit(100).find(master);
+  const campaigns=await new Parse.Query('Campaign').equalTo('active',true).notEqualTo('archived',true).notEqualTo('deleted',true).descending('createdAt').limit(100).find(master);
   return {name:user.get('name'),referralCode:user.get('referralCode'),isAdmin,referrals:refs.map(row),campaigns:campaigns.map(row)};
 });
 Parse.Cloud.define('saveCampaign',async ({user,params}) => {
@@ -115,7 +115,8 @@ Parse.Cloud.define('companyDashboard',async ({user,params}) => {
   if (params && params.archived === true) query.equalTo('archived',true);
   else query.notEqualTo('archived',true);
   const refs=await query.descending('createdAt').limit(100).find(master);
-  return {referrals:refs.map(r=>({...row(r),indicatorName:r.get('indicator').get('name')}))};
+  const campaigns=await new Parse.Query('Campaign').notEqualTo('deleted',true).descending('createdAt').limit(100).find(master);
+  return {campaigns:campaigns.map(row),referrals:refs.map(r=>({...row(r),indicatorName:r.get('indicator').get('name')}))};
 });
 Parse.Cloud.define('updateReferralStatus',async ({user,params}) => {
   await admin(user);
@@ -159,3 +160,24 @@ async function validateCampaignUpload(request) {
 Parse.Cloud.beforeSave(Parse.File, validateCampaignUpload);
 
 Parse.Cloud.define('authorizeCampaignUpload',async ({user}) => {await admin(user);return {allowed:true};});
+
+Parse.Cloud.define('setCampaignArchived',async ({user,params}) => {
+  await admin(user);
+  if(typeof params.archived!=='boolean')throw new Error('Informe se a campanha deve ser arquivada.');
+  const c=await campaign(params.id,false);
+  if((c.get('archived')===true)===params.archived)return {success:true};
+  if(params.archived){c.set('activeBeforeArchive',c.get('active')===true);c.set('active',false);}
+  else c.set('active',c.get('activeBeforeArchive')!==false);
+  c.set('archived',params.archived);
+  c.set('archiveChangedAt',new Date());c.set('archiveChangedBy',user);
+  await c.save(null,master);return {success:true};
+});
+Parse.Cloud.define('deleteCampaign',async ({user,params}) => {
+  await admin(user);
+  const c=await new Parse.Query('Campaign').get(params.id,master);
+  if(c.get('deleted')===true)return {success:true};
+  // Logical deletion preserves pointers in Referral and ShareLog.
+  c.set('deleted',true);c.set('active',false);
+  c.set('deletedAt',new Date());c.set('deletedBy',user);
+  await c.save(null,master);return {success:true};
+});
