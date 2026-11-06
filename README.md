@@ -89,12 +89,14 @@ Validação local com consultas simuladas: recusa acesso sem administrador, vali
 
 ## Upload de imagem e vídeo nas campanhas
 
-No painel da empresa, selecione uma imagem PNG/JPG/WebP (até 5 MB) e/ou um vídeo MP4/WebM (até 20 MB). A prévia local aparece antes de ativar a campanha. Os arquivos são enviados usando Parse.File e as URLs resultantes ficam em imageUrl/videoUrl. Links HTTPS continuam disponíveis como alternativa; o arquivo selecionado tem prioridade. Campanhas mostram o vídeo com controles, sem reprodução automática.
+No painel da empresa, selecione uma imagem PNG/JPG/WebP (até 5 MB) e/ou um vídeo MP4/WebM/MOV (até 20 MB). A prévia local aparece antes de ativar a campanha. Os arquivos são enviados usando Parse.File e as URLs resultantes ficam em imageUrl/videoUrl. Links HTTPS continuam disponíveis como alternativa; o arquivo selecionado tem prioridade. Campanhas mostram o vídeo com controles, sem reprodução automática.
 
 Implante cloud/main.js no backend **antes** de publicar o portal via Deploy the latest commit. policy.js não muda. O novo beforeSave de Parse.File exige o papel admin, valida assinaturas básicas e tamanho. Caso a instância já tenha outro beforeSave de arquivos, unifique as regras em vez de cadastrar dois handlers para Parse.File.
 
-Mantenha upload restrito a usuários autenticados no Parse; não habilite envio público para contornar erros. Confirme no painel do Back4App que o armazenamento e o limite de upload do plano atendem ao arquivo; se o provedor aplicar um limite menor, ele prevalece. Não há compressão nem conversão de MOV/HEIC nesta versão. Arquivos de campanha são materiais públicos acessíveis por URL; não envie contratos ou dados privados nesses campos.
+Mantenha upload restrito a usuários autenticados no Parse; não habilite envio público para contornar erros. Confirme no painel do Back4App que o armazenamento e o limite de upload do plano atendem ao arquivo; se o provedor aplicar um limite menor, ele prevalece. MOV é aceito para upload, sem conversão; a reprodução depende do codec e do navegador. HEIC não é aceito nesta versão. Arquivos de campanha são materiais públicos acessíveis por URL; não envie contratos ou dados privados nesses campos.
 
 O formulário valida os dois arquivos antes do envio. Reutiliza uploads concluídos ao tentar salvar novamente sem sair do formulário. Se a campanha falhar ou o usuário abandonar a página após um upload, o arquivo pode permanecer sem campanha associada; limpeza de arquivos órfãos fica para a gestão do armazenamento.
 
 Validação local: sintaxe e testes com SDK/consultas simulados cobrindo permissões, assinaturas, tamanhos, formatos e reaproveitamento de upload. O envio real ao armazenamento e a reprodução devem ser conferidos após instalar no Back4App.
+
+MOV: validação básica de contêiner QuickTime (moderno ou legado), extensão e limite de 20 MB. A prévia informa quando o navegador não consegue reproduzir, sem impedir o envio. Para ativar, atualize cloud/main.js e depois publique o portal. Testes locais simulados cobrem MOV moderno, legado e conteúdo inválido; testar um arquivo real após implantação.
