@@ -141,3 +141,18 @@ Parse.Cloud.define('setReferralArchived',async ({user,params}) => {
   await r.save(null,master);
   return {success:true};
 });
+
+const campaignMediaLimits = {image:5*1024*1024, video:20*1024*1024};
+async function validateCampaignUpload(request) {
+  await admin(request.user);
+  const name=request.file.name().toLowerCase();
+  const data=Buffer.from(await request.file.getData(),'base64');
+  const image = (/\.png$/.test(name) && data.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))
+    || (/\.jpe?g$/.test(name) && data[0]===255 && data[1]===216 && data[2]===255)
+    || (/\.webp$/.test(name) && data.toString('ascii',0,4)==='RIFF' && data.toString('ascii',8,12)==='WEBP');
+  const video = (/\.mp4$/.test(name) && data.toString('ascii',4,8)==='ftyp')
+    || (/\.webm$/.test(name) && data.subarray(0,4).equals(Buffer.from([26,69,223,163])));
+  if (!image && !video) throw new Error('Envie imagem PNG, JPG ou WebP, ou vídeo MP4 ou WebM válido.');
+  if (!data.length || data.length>campaignMediaLimits[image?'image':'video']) throw new Error(image?'A imagem deve ter até 5 MB.':'O vídeo deve ter até 20 MB.');
+}
+Parse.Cloud.beforeSave(Parse.File, validateCampaignUpload);
