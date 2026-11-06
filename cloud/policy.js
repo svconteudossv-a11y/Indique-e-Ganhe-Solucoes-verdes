@@ -13,4 +13,18 @@ function phone(value) {
   if (!/^55[1-9]\d\d{8,9}$/.test(p)) throw new Error('Informe um telefone brasileiro com DDD.');
   return p;
 }
-module.exports = {statuses, commission, transition, phone};
+function referralBase(name) {
+  const base = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/g, '');
+  if (!base) throw new Error('Informe um nome válido para gerar seu código.');
+  return base;
+}
+async function availableReferralCode(name, isTaken) {
+  const base = referralBase(name);
+  for (let n = 1; n <= 10000; n++) {
+    const code = n === 1 ? base : base + '-' + String(n).padStart(3, '0');
+    if (!await isTaken(code)) return code;
+  }
+  throw new Error('Não foi possível reservar um código. Tente novamente.');
+}
+module.exports = {statuses, commission, transition, phone, referralBase, availableReferralCode};
