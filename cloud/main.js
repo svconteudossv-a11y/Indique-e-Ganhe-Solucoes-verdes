@@ -1,6 +1,5 @@
 'use strict';
-const crypto = require('node:crypto');
-const {commission, transition, phone} = require('./policy');
+const {commission, transition, phone, availableReferralCode} = require('./policy');
 const master = {useMasterKey:true};
 const privateACL = () => new Parse.ACL();
 const clean = (v, max=200) => String(v || '').trim().slice(0,max);
@@ -15,6 +14,31 @@ async function admin(user) {
   const role = await new Parse.Query(Parse.Role).equalTo('name','admin').equalTo('users',user).first(master);
   if (!role) throw new Error('Acesso exclusivo da empresa.');
 }
+
+async function findIndicator(code) {
+  return Parse.Query.or(
+    new Parse.Query(Parse.User).equalTo('referralCode', code),
+    new Parse.Query(Parse.User).equalTo('previousReferralCode', code)
+  ).first(master);
+}
+async function chooseCode(name, userId) {
+  return availableReferralCode(name, async code => {
+    const owner = await findIndicator(code);
+    return !!owner && owner.id !== userId;
+  });
+}
+// Before deploying, create the unique index on _User.referralCode described in README.
+async function migrateLegacyCode(user) {
+  const current = await new Parse.Query(Parse.User).get(user.id, master);
+  if (!/^SV-[A-F0-9]{24}$/.test(current.get('referralCode') || '')) return current;
+  const old = current.get('referralCode');
+  const code = await chooseCode(current.get('name'), current.id);
+  current.set('previousReferralCode', old);
+  current.set('referralCode', code);
+  await current.save(null, master);
+  return current;
+}
+
 async function campaign(id, active=true) {
   const c = await new Parse.Query('Campaign').get(id,master);
   if (active && !c.get('active')) throw new Error('Campanha indisponível.');
@@ -26,15 +50,17 @@ Parse.Cloud.beforeSave(Parse.User, async request => {
     u.set('name',clean(u.get('name'),100));
     if (!u.get('name')) throw new Error('Informe seu nome.');
     u.set('phone',phone(u.get('phone')));
-    u.set('referralCode','SV-'+crypto.randomBytes(12).toString('hex').toUpperCase());
+    u.unset('previousReferralCode');
+    u.set('referralCode',await chooseCode(u.get('name')));
     u.set('role','indicador');
     u.setACL(privateACL());
-  } else if (!request.master && ['referralCode','role','category'].some(k=>u.dirty(k))) {
+  } else if (!request.master && ['referralCode','previousReferralCode','role','category'].some(k=>u.dirty(k))) {
     throw new Error('Este campo é gerenciado pela empresa.');
   }
 });
 Parse.Cloud.define('myDashboard',async ({user}) => {
   if (!user) throw new Error('Entre na sua conta.');
+  user = await migrateLegacyCode(user);
   let isAdmin=false;
   try {await admin(user);isAdmin=true;} catch {}
   const refs=await new Parse.Query('Referral').equalTo('indicator',user).descending('createdAt').limit(100).find(master);
@@ -59,6 +85,7 @@ Parse.Cloud.define('generateShareLink',async ({user,params}) => {
   if (!['whatsapp','facebook','instagram','link'].includes(params.platform)) throw new Error('Canal inválido.');
   const c=await campaign(params.campaignId);
   if (!process.env.PUBLIC_APP_URL) throw new Error('Configure PUBLIC_APP_URL no servidor.');
+  user = await migrateLegacyCode(user);
   const url=new URL(process.env.PUBLIC_APP_URL);
   url.search=new URLSearchParams({ref:user.get('referralCode'),camp:c.id,src:params.platform}).toString();
   const log=new Parse.Object('ShareLog');
@@ -71,7 +98,7 @@ Parse.Cloud.define('publicCampaign',async ({params}) => {
 });
 Parse.Cloud.define('registerReferral',async ({user,params}) => {
   const c=await campaign(params.campaignId);
-  const indicator=params.referralCode ? await new Parse.Query(Parse.User).equalTo('referralCode',clean(params.referralCode,80)).first(master) : user;
+  const indicator=params.referralCode ? await findIndicator(clean(params.referralCode,80)) : user;
   if (!indicator) throw new Error('Código de indicação inválido.');
   const name=clean(params.name,100), number=phone(params.phone);
   if (!name || typeof params.hasFinancing!=='boolean') throw new Error('Preencha nome e financiamento ativo.');
