@@ -157,3 +157,5 @@ async function validateCampaignUpload(request) {
   if (!data.length || data.length>campaignMediaLimits[image?'image':'video']) throw new Error(image?'A imagem deve ter até 5 MB.':'O vídeo deve ter até 20 MB.');
 }
 Parse.Cloud.beforeSave(Parse.File, validateCampaignUpload);
+
+Parse.Cloud.define('authorizeCampaignUpload',async ({user}) => {await admin(user);return {allowed:true};});
