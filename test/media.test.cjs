@@ -15,6 +15,10 @@ vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../publi
  await assert.rejects(()=>upload(request('fake.png',Buffer.from('not an image'))));
  const large=Buffer.alloc(5*1024*1024+1);png.copy(large);await assert.rejects(()=>upload(request('large.png',large)));
  await upload(request('video.mp4',Buffer.from([0,0,0,12,102,116,121,112,105,115,111,109])));
+ await upload(request('video.mov',Buffer.from([0,0,0,20,102,116,121,112,113,116,32,32])));
+ await upload(request('legacy.mov',Buffer.from([0,0,0,8,109,111,111,118])));
+ await assert.rejects(()=>upload(request('fake.mov',Buffer.from('not a video'))));
+ assert.equal(app.validateMedia({name:'video.MOV',type:'video/quicktime',size:100},'video').name,'video.MOV');
  assert.throws(()=>app.validateMedia({name:'video.mp4',type:'video/mp4',size:21*1024*1024},'video'));
  assert.throws(()=>app.validateMedia({name:'attack.svg',type:'image/svg+xml',size:100},'image'));
  assert.equal(app.validateMedia({name:'logo.png',type:'image/png',size:100},'image').name,'logo.png');
