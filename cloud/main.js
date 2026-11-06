@@ -63,7 +63,7 @@ Parse.Cloud.define('myDashboard',async ({user}) => {
   user = await migrateLegacyCode(user);
   let isAdmin=false;
   try {await admin(user);isAdmin=true;} catch {}
-  const refs=await new Parse.Query('Referral').equalTo('indicator',user).descending('createdAt').limit(100).find(master);
+  const refs=await new Parse.Query('Referral').equalTo('indicator',user).notEqualTo('archived',true).descending('createdAt').limit(100).find(master);
   const campaigns=await new Parse.Query('Campaign').equalTo('active',true).descending('createdAt').limit(100).find(master);
   return {name:user.get('name'),referralCode:user.get('referralCode'),isAdmin,referrals:refs.map(row),campaigns:campaigns.map(row)};
 });
@@ -109,14 +109,18 @@ Parse.Cloud.define('registerReferral',async ({user,params}) => {
   r.setACL(privateACL());await r.save(null,master);
   return {success:true,message:'Solicitação recebida com sucesso ✅ Nossa equipe entrará em contato para analisar seu contrato de financiamento e retornar com uma análise personalizada.'};
 }, {rateLimit:{requestTimeWindow:60000,requestCount:10}});
-Parse.Cloud.define('companyDashboard',async ({user}) => {
+Parse.Cloud.define('companyDashboard',async ({user,params}) => {
   await admin(user);
-  const refs=await new Parse.Query('Referral').include('indicator').descending('createdAt').limit(100).find(master);
+  const query=new Parse.Query('Referral').include('indicator');
+  if (params && params.archived === true) query.equalTo('archived',true);
+  else query.notEqualTo('archived',true);
+  const refs=await query.descending('createdAt').limit(100).find(master);
   return {referrals:refs.map(r=>({...row(r),indicatorName:r.get('indicator').get('name')}))};
 });
 Parse.Cloud.define('updateReferralStatus',async ({user,params}) => {
   await admin(user);
   const r=await new Parse.Query('Referral').get(params.id,master);
+  if (r.get('archived') === true) throw new Error('Restaure a indicação antes de alterar o status.');
   const from=r.get('status');transition(from,params.status);
   if (params.status==='contrato_fechado') {
     const amount=commission(params.contractValueCents,params.commissionRate);
@@ -124,4 +128,16 @@ Parse.Cloud.define('updateReferralStatus',async ({user,params}) => {
   }
   r.set('status',params.status);r.set('lastChangedBy',user);await r.save(null,master);
   return row(r);
+});
+
+Parse.Cloud.define('setReferralArchived',async ({user,params}) => {
+  await admin(user);
+  if (typeof params.archived !== 'boolean') throw new Error('Informe se a indicação deve ser arquivada.');
+  const r=await new Parse.Query('Referral').get(params.id,master);
+  if ((r.get('archived') === true) === params.archived) return {success:true};
+  r.set('archived',params.archived);
+  r.set('archiveChangedAt',new Date());
+  r.set('archiveChangedBy',user);
+  await r.save(null,master);
+  return {success:true};
 });
