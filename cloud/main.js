@@ -107,7 +107,7 @@ Parse.Cloud.define('registerReferral',async ({user,params}) => {
   const r=new Parse.Object('Referral');
   r.set({indicator,campaign:c,referredName:name,referredPhone:number,hasFinancing:params.hasFinancing,bank:clean(params.bank,100),status:'novo',consentAt:new Date(),source:['whatsapp','instagram','facebook'].includes(params.source)?params.source:'link'});
   r.setACL(privateACL());await r.save(null,master);
-  return {success:true,message:'Indicação recebida com sucesso ✅ A comissão será calculada pela empresa quando o contrato for fechado.'};
+  return {success:true,message:'Solicitação recebida com sucesso ✅ Nossa equipe entrará em contato para analisar seu contrato de financiamento e retornar com uma análise personalizada.'};
 }, {rateLimit:{requestTimeWindow:60000,requestCount:10}});
 Parse.Cloud.define('companyDashboard',async ({user}) => {
   await admin(user);
