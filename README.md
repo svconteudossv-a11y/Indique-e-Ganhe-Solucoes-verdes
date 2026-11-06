@@ -78,3 +78,11 @@ Novos códigos usam o nome cadastrado, em maiúsculas e sem acentos: `Daniel Sou
 A consulta escolhe o próximo número livre; o índice único é a garantia contra gravações simultâneas. Em uma colisão simultânea, uma solicitação pode ser recusada pelo banco: tente novamente para obter o próximo número. A migração preserva a consulta dos códigos antigos, mas o domínio da hospedagem também precisa continuar acessível para que o link abra.
 
 Validação local: seis testes de política aprovados (incluindo acentos e homônimos) e sintaxe do Cloud Code verificada. Validar migração e resolução de links no Back4App depois do deploy.
+
+## Arquivar e restaurar indicações
+
+O painel da empresa oferece Arquivar indicação, com confirmação, e Ver indicações arquivadas / Restaurar indicação. Apenas usuários no papel admin podem executar setReferralArchived. Arquivamento mantém status, vínculo e valores de comissão e registra archiveChangedAt e archiveChangedBy. Indicações arquivadas não aparecem na lista ativa nem no histórico ativo do indicador, e não podem avançar de status sem restauração. As listas mantêm o limite atual de 100 registros.
+
+Atualização: implante cloud/main.js no backend antes de publicar public/app.js no container. policy.js não precisa mudar. O servidor grava archived (Boolean), archiveChangedAt (Date) e archiveChangedBy (Pointer para _User) com Master Key; não libere Add field para o público. Se a instância restringir alterações de esquema mesmo com Master Key, crie esses campos no dashboard.
+
+Validação local com consultas simuladas: recusa acesso sem administrador, valida Boolean, preserva comissão/status, evita gravação repetida, restaura e bloqueia mudança de status enquanto arquivada. Validar no Back4App após deploy.
