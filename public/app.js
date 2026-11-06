@@ -44,16 +44,29 @@ function bindMediaPreviews(){
     const media=document.createElement(kind==='image'?'img':'video');media.src=previousUrl;media.style.cssText='max-width:100%;max-height:260px;display:block;margin:12px 0;border-radius:10px';
     if(kind==='image')media.alt='Prévia da imagem selecionada';else {media.controls=true;media.preload='metadata';media.onerror=()=>{const warning=document.createElement('small');warning.textContent='Este navegador não conseguiu reproduzir a prévia. O envio do arquivo continua disponível. Para reprodução mais compatível, use MP4.';preview.replaceChildren(media,warning);};}
     preview.append(media);
-    if(/\.mov$/i.test(file.name)){const tip=document.createElement('small');tip.textContent='MOV aceito. A reprodução depende do navegador e do codec do vídeo.';preview.append(tip);}
+    if(/\.mov$/i.test(file.name)){const tip=document.createElement('small');tip.textContent='Este MOV será convertido automaticamente para MP4 ao ativar a campanha.';preview.append(tip);}
    }catch(e){input.value='';message(e.message);}
   };
  }
 }
+async function convertMov(file){
+ const token=Parse.User.current()?.getSessionToken();
+ if(!token)throw Error('Entre como administrador para enviar vídeos.');
+ message('Convertendo MOV para MP4… Aguarde; isso pode levar alguns instantes.');
+ const response=await fetch('/api/convert-mov',{method:'POST',headers:{'Content-Type':'video/quicktime','X-Parse-Session-Token':token},body:file});
+ if(!response.ok){const detail=await response.json().catch(()=>({}));throw Error(detail.error||'Não foi possível converter. Confira a implantação do servidor e tente novamente.');}
+ const blob=await response.blob();
+ if(blob.type!=='video/mp4')throw Error('O servidor não retornou um MP4 válido.');
+ const converted=new File([blob],file.name.replace(/\.mov$/i,'.mp4'),{type:'video/mp4'});
+ validateMedia(converted,'video');
+ return converted;
+}
 async function uploadMedia(file,kind){
  if(!file)return '';
  if(uploadedMedia.has(file))return uploadedMedia.get(file);
- const ext=file.name.split('.').pop().toLowerCase();
- const media=new Parse.File('campanha-'+kind+'.'+ext,file);
+ const source=kind==='video' && /\.mov$/i.test(file.name)?await convertMov(file):file;
+ const ext=source.name.split('.').pop().toLowerCase();
+ const media=new Parse.File('campanha-'+kind+'.'+ext,source);
  message('Enviando '+(kind==='image'?'imagem':'vídeo')+'… Aguarde a conclusão.');
  await media.save();
  const url=media.url();uploadedMedia.set(file,url);return url;
