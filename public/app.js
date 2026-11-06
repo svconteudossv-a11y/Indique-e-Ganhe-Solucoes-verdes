@@ -72,12 +72,91 @@ async function uploadMedia(file,kind){
  const url=media.url();uploadedMedia.set(file,url);return url;
 }
 
+
+let cachedCampaignVideo=null;
+async function campaignVideoFile(campaign){
+ if(cachedCampaignVideo?.url===campaign.videoUrl)return cachedCampaignVideo.file;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),60000);
+ try{
+  const response=await fetch(campaign.videoUrl,{credentials:'omit',referrerPolicy:'no-referrer',signal:controller.signal});
+  if(!response.ok)throw Error('Não foi possível baixar o vídeo.');
+  if(Number(response.headers.get('content-length')||0)>20*1024*1024)throw Error('O vídeo ultrapassa o limite de 20 MB para compartilhar pelo portal.');
+  const blob=await response.blob();
+  if(!blob.size||blob.size>20*1024*1024)throw Error('O vídeo está vazio ou ultrapassa 20 MB.');
+  const pathname=new URL(campaign.videoUrl).pathname;
+  const ext=pathname.match(/\.(mp4|webm|mov)$/i)?.[1].toLowerCase()||'mp4';
+  const type={mp4:'video/mp4',webm:'video/webm',mov:'video/quicktime'}[ext];
+  const name=(campaign.title||'campanha').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,70)||'campanha';
+  const file=new File([blob],name+'.'+ext,{type});
+  cachedCampaignVideo={url:campaign.videoUrl,file};return file;
+ }finally{clearTimeout(timer);}
+}
+function supportsVideoShare(file){
+ try{return typeof navigator.share==='function'&&typeof navigator.canShare==='function'&&navigator.canShare({files:[file]});}catch{return false;}
+}
+function saveCampaignVideo(file){
+ const url=URL.createObjectURL(file),a=document.createElement('a');
+ a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+function campaignVideoActions(c){
+ if(!/^https:\/\//.test(c.videoUrl||''))return '';
+ return '<div><button type="button" data-video-share="'+esc(c.id)+'">Compartilhar vídeo</button><button type="button" class="secondary" data-video-download="'+esc(c.id)+'">Baixar vídeo</button><button type="button" class="secondary" data-video-copy="'+esc(c.id)+'">Copiar legenda e link</button><small id="video-status-'+esc(c.id)+'" role="status" aria-live="polite">Prepare o vídeo e toque novamente para escolher o WhatsApp. Você confirma o envio no aplicativo.</small><a href="'+esc(c.videoUrl)+'" target="_blank" rel="noopener noreferrer">Abrir vídeo para salvar manualmente</a></div>';
+}
+function bindCampaignVideos(campaigns){
+ const prepared=new Map();
+ const getCampaign=id=>campaigns.find(c=>c.id===id);
+ const status=(id,text)=>{document.getElementById('video-status-'+id).textContent=text;};
+ const caption=s=>(s.text||'')+'\n\nAcesse pelo meu link:\n'+s.link;
+ document.querySelectorAll('[data-video-share]').forEach(button=>{
+  button.onclick=()=>{
+   const id=button.dataset.videoShare,c=getCampaign(id),ready=prepared.get(id);
+   if(ready){
+    // Call share directly on the second tap, before any fetch or other awaited operation.
+    if(!supportsVideoShare(ready.file)){status(id,'Este navegador não permite compartilhar arquivos. Use Baixar vídeo e Copiar legenda e link.');return;}
+    button.disabled=true;
+    navigator.share({files:[ready.file],text:ready.text,title:c.title})
+     .then(()=>status(id,'Compartilhamento encerrado no dispositivo. Confira o envio no aplicativo escolhido.'))
+     .catch(e=>status(id,e.name==='AbortError'?'Compartilhamento cancelado. Você pode tentar novamente.':'Não foi possível abrir o compartilhamento. Use Baixar vídeo e Copiar legenda e link.'))
+     .finally(()=>{button.disabled=false;});
+    return;
+   }
+   button.disabled=true;status(id,'Preparando vídeo e link de indicação…');
+   action(async()=>{
+    try{
+     const file=await campaignVideoFile(c);
+     const share=await run('generateShareLink',{campaignId:id,platform:'whatsapp'});
+     prepared.set(id,{file,text:caption(share)});
+     if(supportsVideoShare(file)){
+      button.textContent='Escolher WhatsApp e compartilhar';
+      status(id,'Vídeo pronto. Toque no botão acima e escolha o WhatsApp. Confira se a legenda e o link foram incluídos.');
+     }else{status(id,'Vídeo pronto. Este navegador não compartilha arquivos: use Baixar vídeo e Copiar legenda e link.');}
+    }catch(e){status(id,'Não foi possível preparar o vídeo. Você pode usar Abrir vídeo para salvar manualmente.');throw e;}
+    finally{button.disabled=false;}
+   });
+  };
+ });
+ document.querySelectorAll('[data-video-download]').forEach(button=>button.onclick=()=>action(async()=>{
+  const id=button.dataset.videoDownload;button.disabled=true;status(id,'Preparando download…');
+  try{const file=await campaignVideoFile(getCampaign(id));saveCampaignVideo(file);status(id,'Download solicitado ao navegador. Depois, anexe o vídeo no WhatsApp e cole a legenda com seu link.');}
+  catch(e){status(id,'O download foi bloqueado ou falhou. Use Abrir vídeo para salvar manualmente.');throw e;}
+  finally{button.disabled=false;}
+ }));
+ document.querySelectorAll('[data-video-copy]').forEach(button=>button.onclick=()=>action(async()=>{
+  const id=button.dataset.videoCopy;button.disabled=true;
+  try{let text=prepared.get(id)?.text;if(!text){text=caption(await run('generateShareLink',{campaignId:id,platform:'whatsapp'}));}
+   await navigator.clipboard.writeText(text);status(id,'Legenda e link copiados. Cole junto do vídeo no WhatsApp para manter sua identificação.');
+  }finally{button.disabled=false;}
+ }));
+}
+
 async function render(){
+  cachedCampaignVideo=null;
   clearMediaPreviews();
   if(qs.has('ref')&&qs.has('camp'))return capture();
   if(!Parse.User.current())return auth();
   const d=await run('myDashboard');
-  root.innerHTML=`<section class="card"><span class="tag">Área do indicador</span><h2>Olá, ${esc(d.name)}</h2><p>Seu código: <strong>${esc(d.referralCode)}</strong></p><p>Percentuais disponíveis: 5%, 7% ou 10%. A empresa define o percentual em cada contrato fechado.</p><button id="logout" class="secondary">Sair</button></section><h2>Campanhas</h2><div class="grid">${d.campaigns.map(c=>`<section class="card"><h2>${esc(c.title)}</h2><p>${esc(c.description)}</p>${/^https:\/\//.test(c.imageUrl||'')?`<img src="${esc(c.imageUrl)}" alt="Arte da campanha" loading="lazy">`:''}${/^https:\/\//.test(c.videoUrl||'')?`<video src="${esc(c.videoUrl)}" controls preload="metadata" style="width:100%;max-height:300px;border-radius:12px" aria-label="Vídeo da campanha"></video>`:''}${['whatsapp','facebook','instagram','link'].map(p=>`<button data-share="${p}" data-id="${esc(c.id)}">${{whatsapp:'Compartilhar no WhatsApp',facebook:'Compartilhar no Facebook',instagram:'Copiar legenda e link para Instagram',link:'Copiar link'}[p]}</button>`).join('')}</section>`).join('')||'<p>Nenhuma campanha ativa.</p>'}</div><h2>Suas indicações</h2>${d.referrals.map(r=>`<section class="card"><strong>${esc(r.referredName)}</strong><p>${names[r.status]||esc(r.status)}</p><p>${r.commissionRate?`${r.commissionRate}% · ${money(r.rewardValueCents)}`:'Comissão a definir no fechamento'}</p></section>`).join('')||'<p>Seu histórico aparecerá aqui.</p>'}${d.isAdmin?'<div id="company"></div>':''}`;
+  root.innerHTML=`<section class="card"><span class="tag">Área do indicador</span><h2>Olá, ${esc(d.name)}</h2><p>Seu código: <strong>${esc(d.referralCode)}</strong></p><p>Percentuais disponíveis: 5%, 7% ou 10%. A empresa define o percentual em cada contrato fechado.</p><button id="logout" class="secondary">Sair</button></section><h2>Campanhas</h2><div class="grid">${d.campaigns.map(c=>`<section class="card"><h2>${esc(c.title)}</h2><p>${esc(c.description)}</p>${/^https:\/\//.test(c.imageUrl||'')?`<img src="${esc(c.imageUrl)}" alt="Arte da campanha" loading="lazy">`:''}${/^https:\/\//.test(c.videoUrl||'')?`<video src="${esc(c.videoUrl)}" controls preload="metadata" style="width:100%;max-height:300px;border-radius:12px" aria-label="Vídeo da campanha"></video>`:''}${campaignVideoActions(c)}${['whatsapp','facebook','instagram','link'].map(p=>`<button data-share="${p}" data-id="${esc(c.id)}">${{whatsapp:'Compartilhar link no WhatsApp',facebook:'Compartilhar no Facebook',instagram:'Copiar legenda e link para Instagram',link:'Copiar link'}[p]}</button>`).join('')}</section>`).join('')||'<p>Nenhuma campanha ativa.</p>'}</div><h2>Suas indicações</h2>${d.referrals.map(r=>`<section class="card"><strong>${esc(r.referredName)}</strong><p>${names[r.status]||esc(r.status)}</p><p>${r.commissionRate?`${r.commissionRate}% · ${money(r.rewardValueCents)}`:'Comissão a definir no fechamento'}</p></section>`).join('')||'<p>Seu histórico aparecerá aqui.</p>'}${d.isAdmin?'<div id="company"></div>':''}`;
   document.getElementById('logout').onclick=()=>action(async()=>{await Parse.User.logOut();await render();});
   document.querySelectorAll('[data-share]').forEach(b=>b.onclick=()=>action(async()=>{
     const p=b.dataset.share;const s=await run('generateShareLink',{campaignId:b.dataset.id,platform:p});const text=`${s.text||''}\n\nAcesse pelo meu link:\n${s.link}`;
@@ -85,6 +164,7 @@ async function render(){
     else if(p==='facebook')location.href='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(s.link);
     else {await navigator.clipboard.writeText(p==='link'?s.link:text);message(p==='instagram'?'Legenda e link copiados. No Instagram, adicione o link ao story.':'Link copiado.');}
   }));
+  bindCampaignVideos(d.campaigns);
   if(d.isAdmin)await company();
 }
 function auth(){root.innerHTML=`<div class="grid"><form id="login" class="card"><h2>Entrar</h2>${field('username','E-mail','email')}${field('password','Senha','password')}<button>Entrar</button></form><form id="signup" class="card"><h2>Quero ser indicador</h2>${field('name','Nome')}${field('phone','WhatsApp com DDD','tel')}${field('email','E-mail','email')}${field('password','Senha (mínimo de 12 caracteres)','password')}<button>Criar conta</button></form></div>`;bind('login',async p=>{await Parse.User.logIn(p.username.toLowerCase().trim(),p.password);await render();});bind('signup',async p=>{if(p.password.length<12)throw Error('Use pelo menos 12 caracteres.');const u=new Parse.User();u.set({...p,username:p.email.toLowerCase().trim(),email:p.email.toLowerCase().trim()});await u.signUp();await render();});}
