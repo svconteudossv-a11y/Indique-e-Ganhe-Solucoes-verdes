@@ -81,7 +81,7 @@ Parse.Cloud.define('registerReferral',async ({user,params}) => {
   r.set({indicator,campaign:c,referredName:name,referredPhone:number,hasFinancing:params.hasFinancing,bank:clean(params.bank,100),status:'novo',consentAt:new Date(),source:['whatsapp','instagram','facebook'].includes(params.source)?params.source:'link'});
   r.setACL(privateACL());await r.save(null,master);
   return {success:true,message:'Indicação recebida com sucesso ✅ A comissão será calculada pela empresa quando o contrato for fechado.'};
-}, {rateLimit:{requestPath:true,requestTimeWindow:60000,requestCount:10}});
+}, {rateLimit:{requestTimeWindow:60000,requestCount:10}});
 Parse.Cloud.define('companyDashboard',async ({user}) => {
   await admin(user);
   const refs=await new Parse.Query('Referral').include('indicator').descending('createdAt').limit(100).find(master);
