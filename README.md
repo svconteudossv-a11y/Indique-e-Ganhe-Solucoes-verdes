@@ -112,3 +112,15 @@ server-config.json contém somente os mesmos identificadores públicos usados pe
 Limites: 20 MB na entrada e na saída, um processamento por vez por instância e até 90 segundos de conversão. Vídeo H.264, áudio AAC quando houver, resolução preservada (dimensões ímpares ganham no máximo um pixel para compatibilidade) e otimização para streaming. É uma recodificação e pode haver alteração de qualidade/tamanho. Arquivos temporários são removidos ao terminar ou falhar. Há progresso textual; não há percentual de transcodificação.
 
 Vídeos de alta resolução/complexidade podem exceder os recursos ou timeout do plano atual. Validar no Back4App com um MOV pequeno antes de usar em produção. Teste local executou conversão real e verificou H.264/AAC, além de recusar acesso sem autorização e arquivo inválido. O teste de regressão usa FFmpeg disponível no ambiente ou pula quando ausente.
+
+## Compartilhar o arquivo de vídeo
+
+Campanhas com videoUrl HTTPS exibem Compartilhar vídeo, Baixar vídeo e Copiar legenda e link. O botão original passa a se chamar Compartilhar link no WhatsApp, para distinguir o compartilhamento de texto/link do arquivo.
+
+Primeiro toque em Compartilhar vídeo: carrega o arquivo (até 20 MB), gera o link do indicador com src=whatsapp e prepara a legenda. Segundo toque em Escolher WhatsApp e compartilhar: chama navigator.share diretamente no gesto do usuário, com File e texto. O usuário escolhe o WhatsApp na folha de compartilhamento e confirma o destinatário/envio. O site não envia automaticamente mensagens nem consegue confirmar entrega ou forçar um aplicativo específico. Alguns destinos podem descartar a legenda; confira e use Copiar legenda e link se necessário.
+
+Em navegadores sem suporte a Web Share com arquivos, use Baixar vídeo e Copiar legenda e link. Download usa Blob URL; se o servidor de origem bloquear CORS, falhar ou exceder o limite, o portal oferece Abrir vídeo para salvar manualmente no navegador. URLs externas precisam permitir a leitura por fetch para compartilhar arquivos. Links HTTPS existentes não precisam de conversão para esta função.
+
+Um arquivo é mantido em cache temporário em memória; ao atualizar o painel, é liberada a referência principal. Não há pré-carregamento automático de todos os vídeos. Baixar o arquivo isoladamente não atribui leads; é necessário enviar também o link individual. ShareLog registra geração do link, sem comprovar envio ao WhatsApp.
+
+Implantação desta função: somente Web Deployment → Action → Deploy the latest commit. Não altera o Cloud Code. Testes com APIs de navegador simuladas verificam anexo, link, gesto no segundo toque, cópia, download, cache, ausência de suporte e cancelamento. Validar no WhatsApp de um celular real após a publicação.
