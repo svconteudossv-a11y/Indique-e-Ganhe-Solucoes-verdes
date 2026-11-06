@@ -22,8 +22,8 @@ async function authorize(token){
 async function transcode(input,output,binary,signal){
  const args=['-hide_banner','-loglevel','error','-nostdin','-y','-threads','1',
  '-protocol_whitelist','file,pipe','-i',input,'-map','0:v:0','-map','0:a:0?',
- '-vf','scale=1280:1280:force_original_aspect_ratio=decrease:force_divisible_by=2',
- '-c:v','libx264','-threads','1','-preset','veryfast','-crf','24','-pix_fmt','yuv420p',
+ '-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2',
+ '-c:v','libx264','-threads','1','-preset','veryfast','-crf','24','-tune','zerolatency','-pix_fmt','yuv420p',
  '-c:a','aac','-b:a','128k','-movflags','+faststart',output];
  await new Promise((resolve,reject)=>{
   const proc=spawn(binary,args,{stdio:['ignore','ignore','pipe']});
