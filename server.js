@@ -2,6 +2,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const convertMov = require('./mov-converter').createMovHandler();
 const files = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/index.html': ['index.html', 'text/html; charset=utf-8'],
@@ -9,6 +10,7 @@ const files = {
   '/config.js': ['config.js', 'text/javascript; charset=utf-8']
 };
 const server = http.createServer((req, res) => {
+  if(req.url.split('?')[0]==='/api/convert-mov' && req.method==='POST'){void convertMov(req,res);return;}
   const file = files[req.url.split('?')[0]];
   if (!['GET', 'HEAD'].includes(req.method)) {
     res.writeHead(405, {Allow: 'GET, HEAD'}); res.end(); return;
