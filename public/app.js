@@ -21,7 +21,7 @@ if (qs.has('ref') && qs.has('camp')) {
 
 const mediaTypes={
  image:{accept:'.png,.jpg,.jpeg,.webp',extensions:/\.(png|jpe?g|webp)$/i,mimes:['image/png','image/jpeg','image/webp'],max:5*1024*1024,label:'Imagem (PNG, JPG ou WebP, até 5 MB)'},
- video:{accept:'.mp4,.webm',extensions:/\.(mp4|webm)$/i,mimes:['video/mp4','video/webm'],max:20*1024*1024,label:'Vídeo (MP4 ou WebM, até 20 MB)'}
+ video:{accept:'.mp4,.webm,.mov',extensions:/\.(mp4|webm|mov)$/i,mimes:['video/mp4','video/webm','video/quicktime'],max:20*1024*1024,label:'Vídeo (MP4, WebM ou MOV, até 20 MB)'}
 };
 function validateMedia(file,kind){
  if(!file||!file.name)return null;
@@ -42,8 +42,9 @@ function bindMediaPreviews(){
    try{const file=validateMedia(input.files[0],kind);if(!file)return;
     previousUrl=URL.createObjectURL(file);mediaPreviewUrls.push(previousUrl);
     const media=document.createElement(kind==='image'?'img':'video');media.src=previousUrl;media.style.cssText='max-width:100%;max-height:260px;display:block;margin:12px 0;border-radius:10px';
-    if(kind==='image')media.alt='Prévia da imagem selecionada';else {media.controls=true;media.preload='metadata';}
+    if(kind==='image')media.alt='Prévia da imagem selecionada';else {media.controls=true;media.preload='metadata';media.onerror=()=>{const warning=document.createElement('small');warning.textContent='Este navegador não conseguiu reproduzir a prévia. O envio do arquivo continua disponível. Para reprodução mais compatível, use MP4.';preview.replaceChildren(media,warning);};}
     preview.append(media);
+    if(/\.mov$/i.test(file.name)){const tip=document.createElement('small');tip.textContent='MOV aceito. A reprodução depende do navegador e do codec do vídeo.';preview.append(tip);}
    }catch(e){input.value='';message(e.message);}
   };
  }
