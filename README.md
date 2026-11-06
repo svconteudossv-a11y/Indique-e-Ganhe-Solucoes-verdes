@@ -93,10 +93,22 @@ No painel da empresa, selecione uma imagem PNG/JPG/WebP (até 5 MB) e/ou um víd
 
 Implante cloud/main.js no backend **antes** de publicar o portal via Deploy the latest commit. policy.js não muda. O novo beforeSave de Parse.File exige o papel admin, valida assinaturas básicas e tamanho. Caso a instância já tenha outro beforeSave de arquivos, unifique as regras em vez de cadastrar dois handlers para Parse.File.
 
-Mantenha upload restrito a usuários autenticados no Parse; não habilite envio público para contornar erros. Confirme no painel do Back4App que o armazenamento e o limite de upload do plano atendem ao arquivo; se o provedor aplicar um limite menor, ele prevalece. MOV é aceito para upload, sem conversão; a reprodução depende do codec e do navegador. HEIC não é aceito nesta versão. Arquivos de campanha são materiais públicos acessíveis por URL; não envie contratos ou dados privados nesses campos.
+Mantenha upload restrito a usuários autenticados no Parse; não habilite envio público para contornar erros. Confirme no painel do Back4App que o armazenamento e o limite de upload do plano atendem ao arquivo; se o provedor aplicar um limite menor, ele prevalece. MOV selecionado no formulário é convertido no servidor para MP4 H.264/AAC antes do upload. HEIC não é aceito nesta versão. Arquivos de campanha são materiais públicos acessíveis por URL; não envie contratos ou dados privados nesses campos.
 
 O formulário valida os dois arquivos antes do envio. Reutiliza uploads concluídos ao tentar salvar novamente sem sair do formulário. Se a campanha falhar ou o usuário abandonar a página após um upload, o arquivo pode permanecer sem campanha associada; limpeza de arquivos órfãos fica para a gestão do armazenamento.
 
 Validação local: sintaxe e testes com SDK/consultas simulados cobrindo permissões, assinaturas, tamanhos, formatos e reaproveitamento de upload. O envio real ao armazenamento e a reprodução devem ser conferidos após instalar no Back4App.
 
 MOV: validação básica de contêiner QuickTime (moderno ou legado), extensão e limite de 20 MB. A prévia informa quando o navegador não consegue reproduzir, sem impedir o envio. Para ativar, atualize cloud/main.js e depois publique o portal. Testes locais simulados cobrem MOV moderno, legado e conteúdo inválido; testar um arquivo real após implantação.
+
+## Conversão automática MOV → MP4
+
+Ao ativar a campanha, o portal envia o MOV para POST /api/convert-mov. O servidor verifica a sessão do administrador na função authorizeCampaignUpload do Parse, processa com FFmpeg e devolve um MP4; o navegador então salva apenas esse MP4 no armazenamento da campanha. MP4/WebM seguem o fluxo direto. Não há fallback para salvar o MOV original se a conversão falhar.
+
+Ordem de implantação: primeiro cloud/main.js no backend, depois Deploy the latest commit no container. A dependência ffmpeg-static fornece o executável durante a instalação npm; confira o log do build. É possível definir FFMPEG_PATH no container para um binário instalado manualmente. Não é necessário alterar policy.js.
+
+server-config.json contém somente os mesmos identificadores públicos usados pelo frontend. Se trocar de app Parse, atualize esse arquivo e public/config.js juntos. Nenhuma Master Key é usada na conversão.
+
+Limites: 20 MB na entrada e na saída, um processamento por vez por instância e até 90 segundos de conversão. Vídeo H.264, áudio AAC quando houver, resolução preservada (dimensões ímpares ganham no máximo um pixel para compatibilidade) e otimização para streaming. É uma recodificação e pode haver alteração de qualidade/tamanho. Arquivos temporários são removidos ao terminar ou falhar. Há progresso textual; não há percentual de transcodificação.
+
+Vídeos de alta resolução/complexidade podem exceder os recursos ou timeout do plano atual. Validar no Back4App com um MOV pequeno antes de usar em produção. Teste local executou conversão real e verificou H.264/AAC, além de recusar acesso sem autorização e arquivo inválido. O teste de regressão usa FFmpeg disponível no ambiente ou pula quando ausente.
