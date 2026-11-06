@@ -61,3 +61,20 @@ Abra `http://localhost:8080`. Sem configuração, a página informa a necessidad
 4. Avançar para atendimento e fechar contrato de R$4.500: 5%=R$225, 7%=R$315, 10%=R$450.
 5. Tentar pular etapas e informar percentual diferente; o servidor deve recusar.
 6. Liberar e marcar a comissão como paga; conferir o histórico no portal do indicador.
+
+## Atualização: códigos com nome e sobrenome
+
+Novos códigos usam o nome cadastrado, em maiúsculas e sem acentos: `Daniel Souza` → `DANIEL-SOUZA`. Nomes repetidos recebem `-002`, `-003`, etc. Um nome único como `Daniel` gera `DANIEL`. A busca considera códigos atuais e anteriores.
+
+### Preparação obrigatória antes de atualizar o Cloud Code
+
+1. Em `_User`, crie a coluna `previousReferralCode` do tipo String. Mantenha Add field público desabilitado.
+2. Em Database → Index Manager, crie um **índice UNIQUE** na classe `_User`, campo `referralCode`, ordem ascendente. Confirme que foi concluído com sucesso. Se a interface/plano não disponibilizar índices únicos, não implante esta atualização até configurar a restrição no banco.
+3. Para contas existentes, confira o nome completo no campo `name` antes de acessar o portal. Não altere `referralCode` manualmente.
+4. Atualize **ambos** `cloud/main.js` e `cloud/policy.js` e faça Deploy.
+5. Ao abrir o painel ou gerar um link, contas antigas com código `SV-` seguido de 24 caracteres hexadecimais são convertidas uma única vez. O código anterior é salvo em `previousReferralCode`; a captura aceita ambos os códigos.
+6. Códigos novos não são recalculados quando o nome muda. Indicações já cadastradas continuam ligadas ao mesmo usuário por ponteiro.
+
+A consulta escolhe o próximo número livre; o índice único é a garantia contra gravações simultâneas. Em uma colisão simultânea, uma solicitação pode ser recusada pelo banco: tente novamente para obter o próximo número. A migração preserva a consulta dos códigos antigos, mas o domínio da hospedagem também precisa continuar acessível para que o link abra.
+
+Validação local: seis testes de política aprovados (incluindo acentos e homônimos) e sintaxe do Cloud Code verificada. Validar migração e resolução de links no Back4App depois do deploy.
