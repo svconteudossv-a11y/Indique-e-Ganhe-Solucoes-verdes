@@ -124,3 +124,16 @@ Em navegadores sem suporte a Web Share com arquivos, use Baixar vídeo e Copiar 
 Um arquivo é mantido em cache temporário em memória; ao atualizar o painel, é liberada a referência principal. Não há pré-carregamento automático de todos os vídeos. Baixar o arquivo isoladamente não atribui leads; é necessário enviar também o link individual. ShareLog registra geração do link, sem comprovar envio ao WhatsApp.
 
 Implantação desta função: somente Web Deployment → Action → Deploy the latest commit. Não altera o Cloud Code. Testes com APIs de navegador simuladas verificam anexo, link, gesto no segundo toque, cópia, download, cache, ausência de suporte e cancelamento. Validar no WhatsApp de um celular real após a publicação.
+
+## Gerenciar campanhas: arquivar, restaurar e excluir
+
+O painel da empresa agora lista campanhas na seção Gerenciar campanhas, com filtro entre não arquivadas e arquivadas. Ações exigem confirmação e papel admin.
+
+- Arquivar: salva o estado ativo anterior, desativa a campanha e impede novos links e envios pelo formulário público até restauração.
+- Restaurar: volta ao estado anterior ao arquivamento.
+- Excluir campanha: exclusão lógica (deleted=true), remove das listas administrativas e de indicadores e desativa os links, sem opção de restauração no painel. O objeto permanece no banco para preservar ponteiros em indicações e ShareLog. Não apaga arquivos de mídia, indicações nem comissões.
+- Campos de auditoria: archiveChangedAt/archiveChangedBy, deletedAt/deletedBy; o servidor grava com Master Key.
+
+Implante cloud/main.js no backend antes de publicar o portal. policy.js não muda. Se necessário criar campos manualmente em Campaign: archived (Boolean), activeBeforeArchive (Boolean), archiveChangedAt (Date), archiveChangedBy (Pointer _User), deleted (Boolean), deletedAt (Date), deletedBy (Pointer _User). Não libere Add field ao público.
+
+Testes locais com consultas simuladas verificam restrição administrativa, arquivamento/restauração, exclusão lógica, indisponibilidade dos links e preservação do objeto. Valide no Back4App após implantação.
