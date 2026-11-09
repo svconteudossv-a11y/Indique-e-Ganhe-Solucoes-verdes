@@ -101,11 +101,14 @@ Parse.Cloud.define('registerReferral',async ({user,params}) => {
   const indicator=params.referralCode ? await findIndicator(clean(params.referralCode,80)) : user;
   if (!indicator) throw new Error('Código de indicação inválido.');
   const name=clean(params.name,100), number=phone(params.phone);
+  const vehicle=clean(params.vehicle,120), installmentValueCents=params.installmentValueCents;
+  if(!vehicle)throw new Error('Informe a marca e o modelo do veículo.');
+  if(!Number.isSafeInteger(installmentValueCents)||installmentValueCents<=0||installmentValueCents>100000000)throw new Error('Informe um valor de parcela válido, maior que zero.');
   if (!name || typeof params.hasFinancing!=='boolean') throw new Error('Preencha nome e financiamento ativo.');
   if (number===indicator.get('phone')) throw new Error('Não é possível indicar a si mesmo.');
   if (params.consent!==true) throw new Error('Confirme a autorização de contato.');
   const r=new Parse.Object('Referral');
-  r.set({indicator,campaign:c,referredName:name,referredPhone:number,hasFinancing:params.hasFinancing,bank:clean(params.bank,100),status:'novo',consentAt:new Date(),source:['whatsapp','instagram','facebook'].includes(params.source)?params.source:'link'});
+  r.set({indicator,campaign:c,referredName:name,referredPhone:number,hasFinancing:params.hasFinancing,vehicle,installmentValueCents,bank:clean(params.bank,100),status:'novo',consentAt:new Date(),source:['whatsapp','instagram','facebook'].includes(params.source)?params.source:'link'});
   r.setACL(privateACL());await r.save(null,master);
   return {success:true,message:'Solicitação recebida com sucesso ✅ Nossa equipe entrará em contato para analisar seu contrato de financiamento e retornar com uma análise personalizada.'};
 }, {rateLimit:{requestTimeWindow:60000,requestCount:10}});
