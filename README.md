@@ -1,4 +1,4 @@
-# Indique e Ganhe — Soluções Verdes
+# Indique e Ganhe - Soluções Verdes
 
 Portal de indicadores e painel da empresa. Implementação inicial em revisão na branch `feat/portal-indicadores`.
 
