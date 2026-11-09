@@ -21,10 +21,13 @@ function bind(id,fn){document.getElementById(id).onsubmit=e=>{e.preventDefault()
 const qs=new URLSearchParams(location.search);
 const analysisConfirmation = 'Nossa equipe entrará em contato para analisar seu contrato de financiamento e retornar com uma análise personalizada para sua situação.';
 if (qs.has('ref') && qs.has('camp')) {
-  document.title = 'Análise personalizada · Soluções Verdes';
+  document.title = 'Descubra sua possibilidade de quitação · Soluções Verdes';
   document.querySelector('.eyebrow').textContent = 'Análise gratuita';
-  document.querySelector('.hero h1').textContent = 'Seu financiamento merece uma análise personalizada.';
-  document.querySelector('.hero > p:last-child').textContent = 'Preencha seus dados. Nossa equipe entrará em contato para entender sua situação e analisar seu contrato de financiamento.';
+  document.querySelector('.hero h1').textContent = 'E se você pudesse quitar seu financiamento com até 87% de desconto?*';
+  document.querySelector('.hero > p:last-child').textContent = 'Descubra como funciona a negociação para quitação e quais possibilidades existem para o seu contrato. Solicite uma análise gratuita: nossa equipe avalia sua situação e explica os próximos passos.';
+  const discountNote=document.createElement('small');
+  discountNote.textContent='*O desconto se refere ao saldo negociado para quitação do financiamento. Percentuais e prazos dependem da análise e da negociação com a instituição financeira. Não há garantia de desconto; o serviço não consiste em reduzir o valor das parcelas.';
+  document.querySelector('.hero').append(discountNote);
   document.querySelector('.program-label').textContent = 'Análise de financiamento';
   document.querySelector('footer span').textContent = 'Soluções Verdes · Análise personalizada';
 }
@@ -190,7 +193,7 @@ function installmentCents(value){
  return cents;
 }
 
-async function capture(){const c=await run('publicCampaign',{campaignId:qs.get('camp')});root.innerHTML=`<form id="capture" class="card"><h2>Solicite sua análise gratuita</h2><p>Conte com nossa equipe para avaliar seu contrato e apresentar uma análise personalizada.</p>${field('name','Seu nome')}${field('phone','Seu WhatsApp com DDD','tel')}<label>Tem financiamento de veículo ativo?<select name="financing"><option value="true">Sim</option><option value="false">Não</option></select></label><label>Qual banco financiou seu veículo?<input name="bank" placeholder="Ex.: Santander, Itaú, BV ou PAN"></label><label>Qual é o veículo? (marca e modelo)<input name="vehicle" maxlength="120" placeholder="Ex.: Chevrolet Onix 2022" required></label><label>Valor da parcela (R$)<input name="installment" type="text" inputmode="decimal" placeholder="Ex.: 2.500,00" required></label><label><input name="consent" type="checkbox" required> Autorizo a Soluções Verdes a entrar em contato para analisar minha solicitação.</label><button>Quero análise gratuita</button><small>O resultado da análise e as condições dependem da negociação.</small></form>`;bind('capture',async p=>{const r=await run('registerReferral',{...p,referralCode:qs.get('ref'),campaignId:qs.get('camp'),source:qs.get('src'),installmentValueCents:installmentCents(p.installment),hasFinancing:p.financing==='true',consent:p.consent==='on'});root.innerHTML='<section class="card"><h2>Solicitação recebida ✅</h2><p>'+analysisConfirmation+'</p></section>';message('Seus dados foram recebidos com sucesso ✅');});}
+async function capture(){const c=await run('publicCampaign',{campaignId:qs.get('camp')});root.innerHTML=`<form id="capture" class="card"><h2>Solicite sua análise gratuita</h2><p>Quer entender como esse desconto pode funcionar? Preencha seus dados para receber uma análise personalizada e conhecer as possibilidades para o seu financiamento.</p>${field('name','Seu nome')}${field('phone','Seu WhatsApp com DDD','tel')}<label>Tem financiamento de veículo ativo?<select name="financing"><option value="true">Sim</option><option value="false">Não</option></select></label><label>Qual banco financiou seu veículo?<input name="bank" placeholder="Ex.: Santander, Itaú, BV ou PAN"></label><label>Qual é o veículo? (marca e modelo)<input name="vehicle" maxlength="120" placeholder="Ex.: Chevrolet Onix 2022" required></label><label>Valor da parcela (R$)<input name="installment" type="text" inputmode="decimal" placeholder="Ex.: 2.500,00" required></label><label><input name="consent" type="checkbox" required> Autorizo a Soluções Verdes a entrar em contato para analisar minha solicitação.</label><button>Quero análise gratuita</button><small>O resultado da análise e as condições dependem da negociação.</small></form>`;bind('capture',async p=>{const r=await run('registerReferral',{...p,referralCode:qs.get('ref'),campaignId:qs.get('camp'),source:qs.get('src'),installmentValueCents:installmentCents(p.installment),hasFinancing:p.financing==='true',consent:p.consent==='on'});root.innerHTML='<section class="card"><h2>Solicitação recebida ✅</h2><p>'+analysisConfirmation+'</p></section>';message('Seus dados foram recebidos com sucesso ✅');});}
 
 let showArchivedCampaigns=false;
 function campaignManager(campaigns){
