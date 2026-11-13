@@ -1,8 +1,15 @@
 'use strict';
 const statuses = ['novo', 'em_atendimento', 'contrato_fechado', 'comissao_liberada', 'comissao_paga'];
-function commission(cents, rate) {
-  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > 100000000 || ![5,7,10].includes(rate)) throw new Error('Informe o valor do contrato e escolha 5%, 7% ou 10%.');
-  return Math.round(cents * rate / 100);
+function commission(cents) {
+  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > 100000000) {
+    throw new Error('Informe um valor válido para o contrato.');
+  }
+  return {
+    commissionRate: 10,
+    rewardValueCents: Math.round(cents * 10 / 100),
+    adminCommissionRate: 0.6,
+    adminCommissionValueCents: Math.round(cents * 6 / 1000)
+  };
 }
 function transition(from, to) {
   if (!statuses.includes(from) || !statuses.includes(to) || statuses.indexOf(to) !== statuses.indexOf(from) + 1) throw new Error('Avance uma etapa por vez.');

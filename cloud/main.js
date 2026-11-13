@@ -65,7 +65,10 @@ Parse.Cloud.define('myDashboard',async ({user}) => {
   try {await admin(user);isAdmin=true;} catch {}
   const refs=await new Parse.Query('Referral').equalTo('indicator',user).notEqualTo('archived',true).descending('createdAt').limit(100).find(master);
   const campaigns=await new Parse.Query('Campaign').equalTo('active',true).notEqualTo('archived',true).notEqualTo('deleted',true).descending('createdAt').limit(100).find(master);
-  return {name:user.get('name'),referralCode:user.get('referralCode'),isAdmin,referrals:refs.map(row),campaigns:campaigns.map(row)};
+  return {name:user.get('name'),referralCode:user.get('referralCode'),isAdmin,referrals:refs.map(r => {
+    const {adminCommissionRate, adminCommissionValueCents, ...referral} = row(r);
+    return referral;
+  }),campaigns:campaigns.map(row)};
 });
 Parse.Cloud.define('saveCampaign',async ({user,params}) => {
   await admin(user);
@@ -127,8 +130,8 @@ Parse.Cloud.define('updateReferralStatus',async ({user,params}) => {
   if (r.get('archived') === true) throw new Error('Restaure a indicação antes de alterar o status.');
   const from=r.get('status');transition(from,params.status);
   if (params.status==='contrato_fechado') {
-    const amount=commission(params.contractValueCents,params.commissionRate);
-    r.set({contractValueCents:params.contractValueCents,commissionRate:params.commissionRate,rewardValueCents:amount,commissionMode:'manual',closedAt:new Date()});
+    const amounts = commission(params.contractValueCents);
+    r.set({contractValueCents:params.contractValueCents,...amounts,commissionMode:'fixed',closedAt:new Date()});
   }
   r.set('status',params.status);r.set('lastChangedBy',user);await r.save(null,master);
   return row(r);

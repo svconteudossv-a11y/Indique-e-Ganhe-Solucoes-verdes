@@ -1,6 +1,6 @@
 # Indique e Ganhe — Soluções Verdes
 
-Primeira versão do portal web com backend Parse/Back4App. A comissão é **5%, 7% ou 10% do valor do contrato de serviços fechado com a Soluções Verdes**, selecionada pela empresa no fechamento. Não usa o valor da dívida, do veículo ou do financiamento como base. Não inclui recompensa fixa ou isenção de mensalidade.
+Primeira versão do portal web com backend Parse/Back4App. Cada novo fechamento gera **10% para o indicador e 0,6% para o administrador** sobre o valor do contrato de serviços. Os contratos já fechados preservam suas comissões. Não usa o valor da dívida, do veículo ou do financiamento como base. Não inclui recompensa fixa ou isenção de mensalidade.
 
 ## O que está implementado
 
@@ -30,7 +30,7 @@ A automação de conversa no WhatsApp, notificações, edição de campanhas, ca
 7. Cadastre uma conta normalmente. No dashboard, crie a função/papel Parse.Role de nome `admin`, adicione essa conta à relação `users` e deixe o papel sem permissão pública de escrita. O campo `role` no perfil não concede administração.
 8. Hospede `public/` em HTTPS. Entre como admin, crie uma campanha e compartilhe seu link. Abra o link em janela anônima para testar a captura como indicado.
 
-O esquema é criado pelas operações do Cloud Code. `Referral` contém ponteiros `indicator` e `campaign`, `referredName`, `referredPhone`, `hasFinancing`, `bank`, `source`, `consentAt`, `status`, `contractValueCents`, `commissionRate`, `rewardValueCents`, `commissionMode`, `closedAt` e `lastChangedBy`. `createdAt` é automático. `category` fica reservado no usuário, sem definir regras de categoria nesta versão.
+O esquema é criado pelas operações do Cloud Code. `Referral` contém ponteiros `indicator` e `campaign`, `referredName`, `referredPhone`, `hasFinancing`, `bank`, `source`, `consentAt`, `status`, `contractValueCents`, `commissionRate`, `rewardValueCents`, `adminCommissionRate`, `adminCommissionValueCents`, `commissionMode`, `closedAt` e `lastChangedBy`. `createdAt` é automático. `category` fica reservado no usuário, sem definir regras de categoria nesta versão.
 
 ## Verificação local
 
@@ -58,8 +58,8 @@ Abra `http://localhost:8080`. Sem configuração, a página informa a necessidad
 1. Criar indicador e admin; conferir que o indicador não acessa `companyDashboard`.
 2. Criar campanha e gerar links para cada canal; conferir `ref`, `camp` e `src`.
 3. Enviar formulário público; conferir autoria, autorização e status novo.
-4. Avançar para atendimento e fechar contrato de R$4.500: 5%=R$225, 7%=R$315, 10%=R$450.
-5. Tentar pular etapas e informar percentual diferente; o servidor deve recusar.
+4. Avançar para atendimento e fechar contrato de R$4.500: R$450 para o indicador e R$27 para o administrador.
+5. Conferir que o servidor recusa saltos de etapa e calcula os percentuais fixos mesmo com um percentual diferente enviado pelo cliente.
 6. Liberar e marcar a comissão como paga; conferir o histórico no portal do indicador.
 
 ## Atualização: códigos com nome e sobrenome
