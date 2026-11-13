@@ -194,14 +194,14 @@ function installmentCents(value){
 }
 
 function referralTestimonial() {
-  const testimonial = window.APP_CONFIG?.referralTestimonial;
-  if (!testimonial?.videoUrl || !/^https:\/\//i.test(testimonial.videoUrl)) return '';
-  const poster = /^https:\/\//i.test(testimonial.posterUrl || '') ? ` poster="${esc(testimonial.posterUrl)}"` : '';
   return `<section class="card" aria-labelledby="testimonial-title">
-    <h2 id="testimonial-title">${esc(testimonial.title || "História de quitação")}</h2>
-    <p>${esc(testimonial.description)}</p>
-    <video controls playsinline preload="none" ${poster} src="${esc(testimonial.videoUrl)}" aria-labelledby="testimonial-title" style="display:block;width:100%;max-width:320px;max-height:55vh;background:#10271c;border-radius:12px"></video>
-    <small>Os valores são deste caso. Cada negociação depende do contrato e da instituição financeira.</small>
+    <h2 id="testimonial-title">Histórias de quitação</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:20px">
+      <figure style="margin:0"><img src="/media/fiorino.jpg" alt="Fiorino quitada" style="display:block;width:100%;aspect-ratio:9/16;object-fit:contain;background:#073d2b;border-radius:12px"><figcaption><strong>Fiorino quitada</strong><br>A dívida da Fiorino era de R$ 95.700. O cliente quitou o veículo por R$ 13.928.</figcaption></figure>
+      <figure style="margin:0"><img src="/media/silvania.jpg" alt="Silvania quitou três automóveis" style="display:block;width:100%;aspect-ratio:9/16;object-fit:contain;background:#073d2b;border-radius:12px"><figcaption><strong>Silvania quitou três automóveis</strong><br>Silvania quitou o Nissan por R$ 16 mil, o Onix por R$ 15 mil e o Peugeot por R$ 20 mil. Juntas, as três dívidas somavam R$ 309 mil e foram quitadas por R$ 51 mil.</figcaption></figure>
+      <figure style="margin:0"><img src="/media/duas-quitacoes.jpg" alt="Duas dívidas quitadas" style="display:block;width:100%;aspect-ratio:9/16;object-fit:contain;background:#073d2b;border-radius:12px"><figcaption><strong>Duas dívidas quitadas</strong><br>A primeira dívida, de R$ 61.000, foi quitada por R$ 18.600. A segunda, de R$ 154.000, foi quitada por R$ 29.800.</figcaption></figure>
+    </div>
+    <p><small>Os valores apresentados são de casos individuais. As condições de quitação dependem de cada negociação.</small></p>
     <a href="#capture">Quero analisar meu financiamento ↓</a>
   </section>`;
 }

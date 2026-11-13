@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const convertMov = require('./mov-converter').createMovHandler();
 const files = {
+  '/media/fiorino.jpg': ['media/fiorino.jpg', 'image/jpeg'],
+  '/media/silvania.jpg': ['media/silvania.jpg', 'image/jpeg'],
+  '/media/duas-quitacoes.jpg': ['media/duas-quitacoes.jpg', 'image/jpeg'],
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/index.html': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
