@@ -143,25 +143,41 @@ Parse.Cloud.define('registerReferral',async ({user,params}) => {
   r.setACL(privateACL());await r.save(null,master);
   return {success:true,message:'Solicitação recebida com sucesso ✅ Nossa equipe entrará em contato para analisar seu contrato de financiamento e retornar com uma análise personalizada.'};
 }, {rateLimit:{requestTimeWindow:60000,requestCount:10}});
-// Sum all closed contracts, including archived records, independently of the list limit.
+// Group non-archived contracts by closing month in Brasilia time.
 async function adminFinancialSummary() {
-  const totals = {contracts:0, contractValueCents:0, indicatorCommissionCents:0, adminCommissionCents:0};
+  const empty = () => ({contracts:0,contractValueCents:0,indicatorCommissionCents:0,adminCommissionCents:0,totalCommissionCents:0});
+  const totals = empty(), months = new Map();
+  const formatter = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'});
   await new Parse.Query('Referral')
     .containedIn('status',['contrato_fechado','comissao_liberada','comissao_paga'])
-    .select('contractValueCents','rewardValueCents','adminCommissionValueCents')
+    .notEqualTo('archived',true).include('indicator')
+    .select('closedAt','referredName','vehicle','bank','status','indicator','contractValueCents','rewardValueCents','adminCommissionValueCents','commissionRate','adminCommissionRate')
     .each(r => {
-      totals.contracts++;
-      for (const [target, source] of [
-        ['contractValueCents','contractValueCents'],
-        ['indicatorCommissionCents','rewardValueCents'],
-        ['adminCommissionCents','adminCommissionValueCents']
-      ]) {
-        const value = r.get(source);
-        if (Number.isSafeInteger(value) && value >= 0) totals[target] += value;
+      const raw = r.get('closedAt');
+      const date = raw ? new Date(raw.iso || raw) : null;
+      const valid = date && Number.isFinite(date.getTime());
+      const parts = valid ? formatter.formatToParts(date) : [];
+      const key = valid ? parts.find(p=>p.type==='year').value+'-'+parts.find(p=>p.type==='month').value : 'sem-data';
+      if (!months.has(key)) months.set(key,{month:key,...empty(),items:[]});
+      const group = months.get(key);
+      for (const target of [totals,group]) {
+        target.contracts++;
+        for (const [dest,source] of [['contractValueCents','contractValueCents'],['indicatorCommissionCents','rewardValueCents'],['adminCommissionCents','adminCommissionValueCents']]) {
+          const value=r.get(source);
+          if (Number.isSafeInteger(value) && value>=0) target[dest]+=value;
+        }
+        target.totalCommissionCents=target.indicatorCommissionCents+target.adminCommissionCents;
       }
+      group.items.push({id:r.id,closedAt:valid?date.toISOString():null,
+        referredName:r.get('referredName'),indicatorName:r.get('indicator')?.get('name'),
+        vehicle:r.get('vehicle'),bank:r.get('bank'),status:r.get('status'),
+        contractValueCents:r.get('contractValueCents'),rewardValueCents:r.get('rewardValueCents'),
+        adminCommissionValueCents:r.get('adminCommissionValueCents'),
+        commissionRate:r.get('commissionRate'),adminCommissionRate:r.get('adminCommissionRate')});
     }, master);
-  totals.totalCommissionCents = totals.indicatorCommissionCents + totals.adminCommissionCents;
-  return totals;
+  const groups=[...months.values()].sort((a,b)=>a.month==='sem-data'?1:b.month==='sem-data'?-1:b.month.localeCompare(a.month));
+  for (const group of groups) group.items.sort((a,b)=>(b.closedAt||'').localeCompare(a.closedAt||''));
+  return {...totals,months:groups};
 }
 Parse.Cloud.define('companyDashboard',async ({user,params}) => {
   await admin(user);
