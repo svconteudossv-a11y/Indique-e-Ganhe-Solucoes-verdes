@@ -1,14 +1,15 @@
 'use strict';
 const statuses = ['novo', 'em_atendimento', 'contrato_fechado', 'comissao_liberada', 'comissao_paga'];
-function commission(cents) {
+function commission(cents, adminRate = 0.6) {
   if (!Number.isSafeInteger(cents) || cents <= 0 || cents > 100000000) {
     throw new Error('Informe um valor válido para o contrato.');
   }
+  if (![0.6, 5].includes(adminRate)) throw new Error('Comissão administrativa inválida.');
   return {
     commissionRate: 10,
     rewardValueCents: Math.round(cents * 10 / 100),
-    adminCommissionRate: 0.6,
-    adminCommissionValueCents: Math.round(cents * 6 / 1000)
+    adminCommissionRate: adminRate,
+    adminCommissionValueCents: Math.round(cents * (adminRate === 5 ? 50 : 6) / 1000)
   };
 }
 function transition(from, to) {

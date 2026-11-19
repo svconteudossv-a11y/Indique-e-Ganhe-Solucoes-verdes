@@ -5,7 +5,7 @@ const privateACL = () => new Parse.ACL();
 const clean = (v, max=200) => String(v || '').trim().slice(0,max);
 const row = o => ({id:o.id, ...o.toJSON()});
 // Business objects are only writable through the server functions below.
-for (const className of ['Campaign','Referral','ShareLog']) {
+for (const className of ['Campaign','Referral','ShareLog','IndicatorCommission']) {
   Parse.Cloud.beforeSave(className, request => {if (!request.master) throw new Error('Use as funções do sistema.');});
   Parse.Cloud.beforeDelete(className, request => {if (!request.master) throw new Error('Operação não permitida.');});
 }
@@ -58,6 +58,32 @@ Parse.Cloud.beforeSave(Parse.User, async request => {
     throw new Error('Este campo é gerenciado pela empresa.');
   }
 });
+
+async function indicatorAdminRate(indicator) {
+  const setting = await new Parse.Query('IndicatorCommission')
+    .equalTo('indicator', indicator).descending('createdAt').addDescending('objectId').first(master);
+  return setting?.get('direct') === true ? 5 : 0.6;
+}
+Parse.Cloud.define('getIndicatorCommission', async ({user, params}) => {
+  await admin(user);
+  const indicator = await findIndicator(clean(params.referralCode,80));
+  if (!indicator) throw new Error('Indicador não encontrado. Confira o código do cadastro.');
+  return {name:indicator.get('name'), referralCode:indicator.get('referralCode'),
+    adminCommissionRate:await indicatorAdminRate(indicator)};
+});
+Parse.Cloud.define('setIndicatorCommission', async ({user, params}) => {
+  await admin(user);
+  if (typeof params.direct !== 'boolean') throw new Error('Selecione o tipo de indicador.');
+  const indicator = await findIndicator(clean(params.referralCode,80));
+  if (!indicator) throw new Error('Indicador não encontrado. Confira o código do cadastro.');
+  // Append-only settings keep an audit trail without modifying historical contracts.
+  const setting = new Parse.Object('IndicatorCommission');
+  setting.set({indicator, direct:params.direct, changedBy:user});
+  setting.setACL(privateACL());
+  await setting.save(null, master);
+  return {success:true};
+});
+
 Parse.Cloud.define('myDashboard',async ({user}) => {
   if (!user) throw new Error('Entre na sua conta.');
   user = await migrateLegacyCode(user);
@@ -130,7 +156,7 @@ Parse.Cloud.define('updateReferralStatus',async ({user,params}) => {
   if (r.get('archived') === true) throw new Error('Restaure a indicação antes de alterar o status.');
   const from=r.get('status');transition(from,params.status);
   if (params.status==='contrato_fechado') {
-    const amounts = commission(params.contractValueCents);
+    const amounts = commission(params.contractValueCents, await indicatorAdminRate(r.get('indicator')));
     r.set({contractValueCents:params.contractValueCents,...amounts,commissionMode:'fixed',closedAt:new Date()});
   }
   r.set('status',params.status);r.set('lastChangedBy',user);await r.save(null,master);

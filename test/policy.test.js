@@ -21,3 +21,9 @@ test('homônimos recebem o próximo número livre',async()=>{
   assert.equal(await availableReferralCode('Daniel Souza',async c=>taken.has(c)),'DANIEL-SOUZA-003');
   assert.equal(await availableReferralCode('Maria Silva',async()=>false),'MARIA-SILVA');
 });
+
+test('comissão administrativa direta mantém 10% do indicador',()=>{
+  assert.deepEqual(commission(450000,5),{commissionRate:10,rewardValueCents:45000,adminCommissionRate:5,adminCommissionValueCents:22500});
+  assert.equal(commission(450000).adminCommissionValueCents,2700);
+  for(const rate of [0,10,'5',null]) assert.throws(()=>commission(450000,rate));
+});
