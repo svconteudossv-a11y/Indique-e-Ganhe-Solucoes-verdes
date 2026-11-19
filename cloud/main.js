@@ -143,6 +143,26 @@ Parse.Cloud.define('registerReferral',async ({user,params}) => {
   r.setACL(privateACL());await r.save(null,master);
   return {success:true,message:'Solicitação recebida com sucesso ✅ Nossa equipe entrará em contato para analisar seu contrato de financiamento e retornar com uma análise personalizada.'};
 }, {rateLimit:{requestTimeWindow:60000,requestCount:10}});
+// Sum all closed contracts, including archived records, independently of the list limit.
+async function adminFinancialSummary() {
+  const totals = {contracts:0, contractValueCents:0, indicatorCommissionCents:0, adminCommissionCents:0};
+  await new Parse.Query('Referral')
+    .containedIn('status',['contrato_fechado','comissao_liberada','comissao_paga'])
+    .select('contractValueCents','rewardValueCents','adminCommissionValueCents')
+    .each(r => {
+      totals.contracts++;
+      for (const [target, source] of [
+        ['contractValueCents','contractValueCents'],
+        ['indicatorCommissionCents','rewardValueCents'],
+        ['adminCommissionCents','adminCommissionValueCents']
+      ]) {
+        const value = r.get(source);
+        if (Number.isSafeInteger(value) && value >= 0) totals[target] += value;
+      }
+    }, master);
+  totals.totalCommissionCents = totals.indicatorCommissionCents + totals.adminCommissionCents;
+  return totals;
+}
 Parse.Cloud.define('companyDashboard',async ({user,params}) => {
   await admin(user);
   const query=new Parse.Query('Referral').include('indicator');
@@ -150,7 +170,8 @@ Parse.Cloud.define('companyDashboard',async ({user,params}) => {
   else query.notEqualTo('archived',true);
   const refs=await query.descending('createdAt').limit(100).find(master);
   const campaigns=await new Parse.Query('Campaign').notEqualTo('deleted',true).descending('createdAt').limit(100).find(master);
-  return {campaigns:campaigns.map(row),referrals:refs.map(r=>({...row(r),indicatorName:r.get('indicator').get('name')}))};
+  const financialSummary = await adminFinancialSummary();
+  return {financialSummary,campaigns:campaigns.map(row),referrals:refs.map(r=>({...row(r),indicatorName:r.get('indicator').get('name')}))};
 });
 Parse.Cloud.define('updateReferralStatus',async ({user,params}) => {
   await admin(user);
