@@ -27,3 +27,9 @@ test('comissão administrativa direta mantém 10% do indicador',()=>{
   assert.equal(commission(450000).adminCommissionValueCents,2700);
   for(const rate of [0,10,'5',null]) assert.throws(()=>commission(450000,rate));
 });
+
+test('15% do ADM e arredondamento em centavos',()=>{
+ assert.deepEqual(commission(450000,15),{commissionRate:10,rewardValueCents:45000,adminCommissionRate:15,adminCommissionValueCents:67500});
+ assert.equal(commission(101,15).adminCommissionValueCents,15);
+ for (const rate of ['15',15.1,NaN,Infinity]) assert.throws(()=>commission(450000,rate));
+});

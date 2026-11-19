@@ -4,12 +4,12 @@ function commission(cents, adminRate = 0.6) {
   if (!Number.isSafeInteger(cents) || cents <= 0 || cents > 100000000) {
     throw new Error('Informe um valor válido para o contrato.');
   }
-  if (![0.6, 5].includes(adminRate)) throw new Error('Comissão administrativa inválida.');
+  if (![0.6, 5, 15].includes(adminRate)) throw new Error('Comissão administrativa inválida.');
   return {
     commissionRate: 10,
     rewardValueCents: Math.round(cents * 10 / 100),
     adminCommissionRate: adminRate,
-    adminCommissionValueCents: Math.round(cents * (adminRate === 5 ? 50 : 6) / 1000)
+    adminCommissionValueCents: Math.round(cents * ({0.6:6, 5:50, 15:150}[adminRate]) / 1000)
   };
 }
 function transition(from, to) {

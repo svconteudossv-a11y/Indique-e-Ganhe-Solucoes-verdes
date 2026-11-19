@@ -62,7 +62,7 @@ Parse.Cloud.beforeSave(Parse.User, async request => {
 async function indicatorAdminRate(indicator) {
   const setting = await new Parse.Query('IndicatorCommission')
     .equalTo('indicator', indicator).descending('createdAt').addDescending('objectId').first(master);
-  return setting?.get('direct') === true ? 5 : 0.6;
+  return setting?.get('adminCommissionRate') ?? (setting?.get('direct') === true ? 5 : 0.6);
 }
 Parse.Cloud.define('getIndicatorCommission', async ({user, params}) => {
   await admin(user);
@@ -73,12 +73,14 @@ Parse.Cloud.define('getIndicatorCommission', async ({user, params}) => {
 });
 Parse.Cloud.define('setIndicatorCommission', async ({user, params}) => {
   await admin(user);
-  if (typeof params.direct !== 'boolean') throw new Error('Selecione o tipo de indicador.');
+  const rate = params.adminCommissionRate !== undefined ? params.adminCommissionRate
+    : typeof params.direct === 'boolean' ? (params.direct ? 5 : 0.6) : null;
+  if (![0.6, 5, 15].includes(rate)) throw new Error('Selecione 0,6%, 5% ou 15% para o ADM.');
   const indicator = await findIndicator(clean(params.referralCode,80));
   if (!indicator) throw new Error('Indicador não encontrado. Confira o código do cadastro.');
   // Append-only settings keep an audit trail without modifying historical contracts.
   const setting = new Parse.Object('IndicatorCommission');
-  setting.set({indicator, direct:params.direct, changedBy:user});
+  setting.set({indicator, direct:rate === 5, adminCommissionRate:rate, changedBy:user});
   setting.setACL(privateACL());
   await setting.save(null, master);
   return {success:true};
@@ -156,7 +158,8 @@ Parse.Cloud.define('updateReferralStatus',async ({user,params}) => {
   if (r.get('archived') === true) throw new Error('Restaure a indicação antes de alterar o status.');
   const from=r.get('status');transition(from,params.status);
   if (params.status==='contrato_fechado') {
-    const amounts = commission(params.contractValueCents, await indicatorAdminRate(r.get('indicator')));
+    const amounts = commission(params.contractValueCents, params.adminCommissionRate !== undefined
+      ? params.adminCommissionRate : await indicatorAdminRate(r.get('indicator')));
     r.set({contractValueCents:params.contractValueCents,...amounts,commissionMode:'fixed',closedAt:new Date()});
   }
   r.set('status',params.status);r.set('lastChangedBy',user);await r.save(null,master);
